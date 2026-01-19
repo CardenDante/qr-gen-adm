@@ -22,11 +22,14 @@ class QRCodePrinterApp(ctk.CTk):
         self.geometry("1000x600")
         self.resizable(False, False)
 
-        # Set window icon if available
+        # Set window icon using QR code
         try:
-            icon_path = self.get_resource_path("Profile.png")
+            icon_path = self.get_resource_path("qr_icon.ico")
             if os.path.exists(icon_path):
                 self.iconbitmap(default=icon_path)
+            else:
+                # Create QR code icon programmatically if file doesn't exist
+                self.create_qr_icon()
         except:
             pass
 
@@ -51,6 +54,23 @@ class QRCodePrinterApp(ctk.CTk):
         except Exception:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
+
+    def create_qr_icon(self):
+        """Create a simple QR code icon programmatically"""
+        try:
+            # Generate a simple QR code as app icon
+            qr = qrcode.QRCode(version=1, box_size=10, border=1)
+            qr.add_data("QR")
+            qr.make(fit=True)
+            icon_img = qr.make_image(fill_color="black", back_color="white")
+            icon_img = icon_img.resize((64, 64), Image.Resampling.LANCZOS)
+
+            # Save as ico file
+            icon_path = "qr_icon.ico"
+            icon_img.save(icon_path, format='ICO')
+            self.iconbitmap(default=icon_path)
+        except:
+            pass
 
     def create_widgets(self):
         # Clean modern background

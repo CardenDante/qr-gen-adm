@@ -1,21 +1,31 @@
 @echo off
 echo ========================================
-echo Building QR Code Label Printer...
+echo QR Label Printer - Build Script
 echo ========================================
 echo.
 
-echo Installing PyInstaller...
-pip install pyinstaller
+echo Step 1: Creating QR icon...
+python build_exe.py
+if errorlevel 1 (
+    echo Error creating icon!
+    pause
+    exit /b 1
+)
 echo.
 
-echo Building executable...
-pyinstaller --clean build.spec
+echo Step 2: Building executable with PyInstaller...
+python -m PyInstaller --onefile --windowed --icon=qr_icon.ico --name=QRLabelPrinter main.py
+if errorlevel 1 (
+    echo Error building executable!
+    pause
+    exit /b 1
+)
 echo.
 
 echo ========================================
-echo Build Complete!
+echo BUILD COMPLETE!
 echo ========================================
-echo.
-echo Executable location: dist\QR_Label_Printer.exe
+echo Your executable is located at:
+echo dist\QRLabelPrinter.exe
 echo.
 pause
