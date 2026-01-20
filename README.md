@@ -18,7 +18,7 @@ A modern, professional desktop application for generating and printing QR code l
 
 ## 📦 Download
 
-**[Download Latest Release](https://github.com/yourusername/qr-label-printer/releases/latest)**
+**[Download Latest Release](https://github.com/CardenDante/qr-gen-adm/releases/tag/Ultra-Fast)**
 
 Download `QR_Label_Printer.exe` and run - no installation required!
 
