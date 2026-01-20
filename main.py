@@ -277,6 +277,10 @@ class QRCodePrinterApp(ctk.CTk):
         self.qr_display_label.configure(image=self.qr_image_display)
         self.qr_display_label.pack(pady=(20, 10))
 
+        # Clear old info labels before creating new ones
+        for widget in self.info_frame.winfo_children():
+            widget.destroy()
+
         # Show info
         self.info_frame.pack(pady=(0, 20))
 
@@ -341,15 +345,15 @@ class QRCodePrinterApp(ctk.CTk):
 
         label.paste(qr_img, (qr_x, qr_y))
 
-        # Add text on the right side
+        # Add text on the right side - VERTICALLY (rotated 90 degrees)
         text_x = qr_x + qr_size + int(margin * 0.5)
-        text_y_center = height_px // 2
 
         # Try to load a bold font, fallback to default
         try:
-            # Calculate font sizes based on label height - smaller fonts
-            title_font_size = int(height_px * 0.12)
-            number_font_size = int(height_px * 0.22)
+            # Calculate font size based on available space
+            # Font should fit in the remaining width when rotated
+            # Reduced size to ensure it fits on all label types
+            font_size = int(height_px * 0.12)
 
             # Try to find Arial Bold
             font_paths = [
@@ -358,52 +362,48 @@ class QRCodePrinterApp(ctk.CTk):
                 "C:/Windows/Fonts/calibrib.ttf",  # Calibri Bold
             ]
 
-            title_font = None
-            number_font = None
+            text_font = None
 
             for font_path in font_paths:
                 if os.path.exists(font_path):
                     try:
-                        title_font = ImageFont.truetype(font_path, title_font_size)
-                        number_font = ImageFont.truetype(font_path, number_font_size)
+                        text_font = ImageFont.truetype(font_path, font_size)
                         break
                     except:
                         continue
 
-            if not title_font:
-                title_font = ImageFont.load_default()
-                number_font = ImageFont.load_default()
+            if not text_font:
+                text_font = ImageFont.load_default()
 
         except Exception as e:
-            title_font = ImageFont.load_default()
-            number_font = ImageFont.load_default()
+            text_font = ImageFont.load_default()
 
-        # Draw "WCN26F-" title
-        title_text = "WCN26F-"
-        title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
-        title_width = title_bbox[2] - title_bbox[0]
-        title_height = title_bbox[3] - title_bbox[1]
+        # Create the full text (no line breaks)
+        full_text = f"WCN26F-{admission_number}"
 
-        # Draw admission number
-        number_bbox = draw.textbbox((0, 0), admission_number, font=number_font)
-        number_width = number_bbox[2] - number_bbox[0]
-        number_height = number_bbox[3] - number_bbox[1]
+        # Create a temporary image to draw the text horizontally
+        temp_bbox = draw.textbbox((0, 0), full_text, font=text_font)
+        text_width = temp_bbox[2] - temp_bbox[0]
+        text_height = temp_bbox[3] - temp_bbox[1]
 
-        # Calculate vertical positions to center the text block
-        total_text_height = title_height + number_height + int(height_px * 0.05)
-        text_start_y = text_y_center - (total_text_height // 2)
+        # Create temporary image for text
+        text_img = Image.new('RGB', (text_width + 20, text_height + 20), 'white')
+        text_draw = ImageDraw.Draw(text_img)
+        text_draw.text((10, 10), full_text, fill='black', font=text_font)
 
-        # Center text horizontally in available space
-        title_x = text_x + (text_area_width - title_width) // 2
-        number_x = text_x + (text_area_width - number_width) // 2
+        # Rotate text 90 degrees counter-clockwise
+        text_img_rotated = text_img.rotate(90, expand=True)
 
-        # Draw the text
-        draw.text((title_x, text_start_y), title_text, fill='black', font=title_font)
-        draw.text((number_x, text_start_y + title_height + int(height_px * 0.05)),
-                  admission_number, fill='black', font=number_font)
+        # Calculate position to center the rotated text vertically and place it on the right
+        rotated_width, rotated_height = text_img_rotated.size
+        text_paste_x = text_x
+        text_paste_y = (height_px - rotated_height) // 2
 
-        # Add a subtle border for professional look
-        border_width = 2
+        # Paste the rotated text onto the label
+        label.paste(text_img_rotated, (text_paste_x, text_paste_y))
+
+        # Add a visible border for professional look
+        border_width = 4
         draw.rectangle(
             [border_width, border_width, width_px - border_width, height_px - border_width],
             outline='black',
@@ -467,9 +467,11 @@ class QRCodePrinterApp(ctk.CTk):
             finally:
                 win32print.ClosePrinter(hPrinter)
 
-            messagebox.showinfo(
+            # Show auto-disappearing success dialog
+            admission_num = self.generated_qr_data
+            self.show_auto_close_dialog(
                 "Success",
-                f"Label printed successfully!\n\nAdmission: {self.generated_qr_data}\nPrinter: {printer_name}\nSize: {selected_size}"
+                f"Label printed successfully!\n\nAdmission: {admission_num}\nPrinter: {printer_name}\nSize: {selected_size}"
             )
 
             # Clear
@@ -493,6 +495,36 @@ class QRCodePrinterApp(ctk.CTk):
         self.generated_qr_data = None
         self.print_btn.configure(state="disabled")
         self.admission_entry.focus()
+
+    def show_auto_close_dialog(self, title, message, timeout=2000):
+        """Show a modal dialog that auto-closes after timeout (in milliseconds)"""
+        # Create a top-level window
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(title)
+        dialog.geometry("400x200")
+        dialog.resizable(False, False)
+
+        # Center the dialog on parent window
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Add message
+        label = ctk.CTkLabel(
+            dialog,
+            text=message,
+            font=ctk.CTkFont(size=14),
+            wraplength=350
+        )
+        label.pack(expand=True, pady=30, padx=20)
+
+        # Schedule auto-close
+        dialog.after(timeout, dialog.destroy)
+
+        # Center dialog on screen
+        dialog.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() - dialog.winfo_width()) // 2
+        y = self.winfo_y() + (self.winfo_height() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
 
 
 if __name__ == "__main__":
