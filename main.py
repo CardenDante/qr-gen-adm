@@ -352,8 +352,8 @@ class QRCodePrinterApp(ctk.CTk):
         try:
             # Calculate font size based on available space
             # Font should fit in the remaining width when rotated
-            # Reduced size to ensure it fits on all label types
-            font_size = int(height_px * 0.12)
+            # Increased size for better visibility on all label types
+            font_size = int(height_px * 0.18)
 
             # Try to find Arial Bold
             font_paths = [
@@ -379,7 +379,7 @@ class QRCodePrinterApp(ctk.CTk):
             text_font = ImageFont.load_default()
 
         # Create the full text (no line breaks)
-        full_text = f"WCN26F-{admission_number}"
+        full_text = admission_number
 
         # Create a temporary image to draw the text horizontally
         temp_bbox = draw.textbbox((0, 0), full_text, font=text_font)
