@@ -263,7 +263,7 @@ class QRCodePrinterApp(ctk.CTk):
         qr_img = qr.make_image(fill_color="black", back_color="white")
 
         # Full number with prefix for display only
-        full_number = f"WCN26F-{admission_number}"
+        full_number = f"{admission_number}"
 
         # Resize for display
         qr_img_display = qr_img.resize((250, 250), Image.Resampling.LANCZOS)
