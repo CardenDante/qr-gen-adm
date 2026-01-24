@@ -2,11 +2,20 @@ import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
-import win32print
-import win32ui
-from PIL import ImageWin
 import os
 import sys
+import platform
+import subprocess
+import tempfile
+
+# Platform-specific imports
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux"
+
+if IS_WINDOWS:
+    import win32print
+    import win32ui
+    from PIL import ImageWin
 
 # Set appearance with modern professional theme
 ctk.set_appearance_mode("light")
@@ -26,7 +35,8 @@ class QRCodePrinterApp(ctk.CTk):
         try:
             icon_path = self.get_resource_path("qr_icon.ico")
             if os.path.exists(icon_path):
-                self.iconbitmap(default=icon_path)
+                if IS_WINDOWS:
+                    self.iconbitmap(default=icon_path)
             else:
                 # Create QR code icon programmatically if file doesn't exist
                 self.create_qr_icon()
@@ -68,7 +78,8 @@ class QRCodePrinterApp(ctk.CTk):
             # Save as ico file
             icon_path = "qr_icon.ico"
             icon_img.save(icon_path, format='ICO')
-            self.iconbitmap(default=icon_path)
+            if IS_WINDOWS:
+                self.iconbitmap(default=icon_path)
         except:
             pass
 
@@ -355,12 +366,23 @@ class QRCodePrinterApp(ctk.CTk):
             # Increased size for better visibility on all label types
             font_size = int(height_px * 0.18)
 
-            # Try to find Arial Bold
-            font_paths = [
-                "C:/Windows/Fonts/arialbd.ttf",  # Arial Bold
-                "C:/Windows/Fonts/arial.ttf",     # Arial Regular
-                "C:/Windows/Fonts/calibrib.ttf",  # Calibri Bold
-            ]
+            # Try to find fonts based on platform
+            if IS_WINDOWS:
+                font_paths = [
+                    "C:/Windows/Fonts/arialbd.ttf",  # Arial Bold
+                    "C:/Windows/Fonts/arial.ttf",     # Arial Regular
+                    "C:/Windows/Fonts/calibrib.ttf",  # Calibri Bold
+                ]
+            else:
+                # Linux font paths
+                font_paths = [
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+                    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                ]
 
             text_font = None
 
@@ -415,8 +437,15 @@ class QRCodePrinterApp(ctk.CTk):
 
         return label
 
-    def find_xprinter(self):
-        """Find Xprinter 470B"""
+    def find_printer(self):
+        """Find printer based on platform"""
+        if IS_WINDOWS:
+            return self.find_xprinter_windows()
+        else:
+            return self.find_printer_linux()
+
+    def find_xprinter_windows(self):
+        """Find Xprinter 470B on Windows"""
         printers = [printer[2] for printer in win32print.EnumPrinters(2)]
 
         for printer in printers:
@@ -424,6 +453,90 @@ class QRCodePrinterApp(ctk.CTk):
                 return printer
 
         return win32print.GetDefaultPrinter()
+
+    def find_printer_linux(self):
+        """Find printer on Linux using CUPS"""
+        try:
+            # Get list of printers
+            result = subprocess.run(['lpstat', '-p'], capture_output=True, text=True)
+            printers = result.stdout
+
+            # Look for Xprinter
+            for line in printers.split('\n'):
+                if '470B' in line or 'XP-470B' in line or 'XPRINTER' in line.upper():
+                    # Extract printer name
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return parts[1]
+
+            # Get default printer
+            result = subprocess.run(['lpstat', '-d'], capture_output=True, text=True)
+            if 'system default destination:' in result.stdout:
+                return result.stdout.split(':')[1].strip()
+
+            # Fallback: get first available printer
+            result = subprocess.run(['lpstat', '-p'], capture_output=True, text=True)
+            for line in result.stdout.split('\n'):
+                if line.startswith('printer'):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return parts[1]
+
+            return None
+        except Exception as e:
+            return None
+
+    def print_label_windows(self, label_image, printer_name):
+        """Print using Windows API"""
+        hPrinter = win32print.OpenPrinter(printer_name)
+
+        try:
+            hDC = win32ui.CreateDC()
+            hDC.CreatePrinterDC(printer_name)
+
+            hDC.StartDoc("QR Code Label")
+            hDC.StartPage()
+
+            # Convert and print
+            dib = ImageWin.Dib(label_image)
+            img_width, img_height = label_image.size
+            dib.draw(hDC.GetHandleOutput(), (0, 0, img_width, img_height))
+
+            hDC.EndPage()
+            hDC.EndDoc()
+            hDC.DeleteDC()
+
+        finally:
+            win32print.ClosePrinter(hPrinter)
+
+    def print_label_linux(self, label_image, printer_name):
+        """Print using CUPS on Linux"""
+        # Save image to temporary file
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            tmp_path = tmp.name
+            # Convert to RGB for PNG saving
+            if label_image.mode == '1':
+                label_image = label_image.convert('RGB')
+            label_image.save(tmp_path, 'PNG')
+
+        try:
+            # Print using lp command
+            cmd = ['lp']
+            if printer_name:
+                cmd.extend(['-d', printer_name])
+            cmd.append(tmp_path)
+
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                raise Exception(f"Print failed: {result.stderr}")
+
+        finally:
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
 
     def print_label(self):
         if not self.generated_qr_data:
@@ -443,29 +556,16 @@ class QRCodePrinterApp(ctk.CTk):
             label_image = self.create_label(self.generated_qr_data, width_mm, height_mm)
 
             # Find printer
-            printer_name = self.find_xprinter()
+            printer_name = self.find_printer()
 
-            # Print
-            hPrinter = win32print.OpenPrinter(printer_name)
+            if not printer_name and IS_LINUX:
+                raise Exception("No printer found. Please ensure CUPS is installed and a printer is configured.")
 
-            try:
-                hDC = win32ui.CreateDC()
-                hDC.CreatePrinterDC(printer_name)
-
-                hDC.StartDoc("QR Code Label")
-                hDC.StartPage()
-
-                # Convert and print
-                dib = ImageWin.Dib(label_image)
-                img_width, img_height = label_image.size
-                dib.draw(hDC.GetHandleOutput(), (0, 0, img_width, img_height))
-
-                hDC.EndPage()
-                hDC.EndDoc()
-                hDC.DeleteDC()
-
-            finally:
-                win32print.ClosePrinter(hPrinter)
+            # Print based on platform
+            if IS_WINDOWS:
+                self.print_label_windows(label_image, printer_name)
+            else:
+                self.print_label_linux(label_image, printer_name)
 
             # Show auto-disappearing success dialog
             admission_num = self.generated_qr_data
