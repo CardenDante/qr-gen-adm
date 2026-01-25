@@ -28,7 +28,7 @@ class QRCodePrinterApp(ctk.CTk):
 
         # Window configuration
         self.title("QR Code Label Printer")
-        self.geometry("1000x600")
+        self.geometry("1000x700")
         self.resizable(False, False)
 
         # Set window icon using QR code
