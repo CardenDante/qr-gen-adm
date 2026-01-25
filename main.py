@@ -135,50 +135,50 @@ class QRCodePrinterApp(ctk.CTk):
         admission_label = ctk.CTkLabel(
             form_frame,
             text="Admission Number",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#495057",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#2c3e50",
             anchor="w"
         )
-        admission_label.pack(fill="x", pady=(20, 8))
+        admission_label.pack(fill="x", pady=(15, 8))
 
         self.admission_entry = ctk.CTkEntry(
             form_frame,
             placeholder_text="Enter number (e.g., 4433)",
-            height=48,
-            font=ctk.CTkFont(size=15),
-            border_width=2,
-            corner_radius=8,
-            border_color="#dee2e6",
+            height=45,
+            font=ctk.CTkFont(size=14),
+            border_width=1,
+            corner_radius=6,
+            border_color="#ced4da",
             fg_color="#FFFFFF"
         )
-        self.admission_entry.pack(fill="x", pady=(0, 25))
+        self.admission_entry.pack(fill="x", pady=(0, 20))
         self.admission_entry.bind("<Return>", lambda e: self.handle_enter_key())
 
         # Label Size Section
         size_label = ctk.CTkLabel(
             form_frame,
             text="Label Size",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#495057",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#2c3e50",
             anchor="w"
         )
         size_label.pack(fill="x", pady=(0, 8))
 
-        self.size_dropdown = ctk.CTkComboBox(
+        self.size_dropdown = ctk.CTkOptionMenu(
             form_frame,
             values=list(self.label_sizes.keys()),
-            height=48,
+            height=45,
             font=ctk.CTkFont(size=14),
-            border_width=2,
-            corner_radius=8,
-            state="readonly",
+            corner_radius=6,
             button_color="#007bff",
-            border_color="#dee2e6",
-            fg_color="#FFFFFF",
-            dropdown_fg_color="#FFFFFF"
+            button_hover_color="#0056b3",
+            fg_color="#007bff",
+            text_color="#FFFFFF",
+            dropdown_fg_color="#FFFFFF",
+            dropdown_hover_color="#f8f9fa"
         )
         self.size_dropdown.set("60 x 40 mm")
-        self.size_dropdown.pack(fill="x", pady=(0, 25))
+        self.size_dropdown.pack(fill="x", pady=(0, 20))
 
         # Bulk Print Toggle
         self.bulk_mode_var = ctk.BooleanVar(value=False)
@@ -187,23 +187,24 @@ class QRCodePrinterApp(ctk.CTk):
             text="Bulk Print Mode",
             variable=self.bulk_mode_var,
             command=self.toggle_bulk_mode,
-            font=ctk.CTkFont(size=12),
-            text_color="#495057",
+            font=ctk.CTkFont(size=13),
+            text_color="#2c3e50",
             fg_color="#007bff",
             hover_color="#0056b3",
-            checkbox_width=20,
-            checkbox_height=20
+            checkbox_width=22,
+            checkbox_height=22,
+            corner_radius=4
         )
-        self.bulk_mode_checkbox.pack(fill="x", pady=(0, 15))
+        self.bulk_mode_checkbox.pack(fill="x", pady=(0, 20))
 
         # Quantity input (hidden by default)
-        self.quantity_frame = ctk.CTkFrame(form_frame, fg_color="transparent", height=0)
+        self.quantity_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
 
         quantity_label = ctk.CTkLabel(
             self.quantity_frame,
             text="Quantity",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#495057",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#2c3e50",
             anchor="w"
         )
         quantity_label.pack(fill="x", pady=(0, 8))
@@ -211,42 +212,44 @@ class QRCodePrinterApp(ctk.CTk):
         self.quantity_entry = ctk.CTkEntry(
             self.quantity_frame,
             placeholder_text="How many labels? (e.g., 10)",
-            height=48,
-            font=ctk.CTkFont(size=15),
-            border_width=2,
-            corner_radius=8,
-            border_color="#dee2e6",
+            height=45,
+            font=ctk.CTkFont(size=14),
+            border_width=1,
+            corner_radius=6,
+            border_color="#ced4da",
             fg_color="#FFFFFF"
         )
         self.quantity_entry.pack(fill="x", pady=(0, 0))
         self.quantity_entry.bind("<Return>", lambda e: self.handle_enter_key())
 
-        # Modern buttons
+        # Buttons side by side
+        button_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(0, 0))
+
         self.generate_btn = ctk.CTkButton(
-            form_frame,
-            text="Generate QR Code",
+            button_frame,
+            text="Generate",
             command=self.generate_qr_code,
-            height=52,
-            font=ctk.CTkFont(size=15, weight="bold"),
-            corner_radius=8,
+            height=45,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            corner_radius=6,
             fg_color="#28a745",
             hover_color="#218838"
         )
-        self.generate_btn.pack(fill="x", pady=(0, 12))
+        self.generate_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
-        # Print Button
         self.print_btn = ctk.CTkButton(
-            form_frame,
-            text="Print Label",
+            button_frame,
+            text="Print",
             command=self.print_label,
-            height=52,
-            font=ctk.CTkFont(size=15, weight="bold"),
-            corner_radius=8,
+            height=45,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            corner_radius=6,
             fg_color="#007bff",
             hover_color="#0056b3",
             state="disabled"
         )
-        self.print_btn.pack(fill="x")
+        self.print_btn.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         # Footer
         footer_label = ctk.CTkLabel(
@@ -298,9 +301,13 @@ class QRCodePrinterApp(ctk.CTk):
     def toggle_bulk_mode(self):
         """Show/hide quantity input based on bulk mode toggle"""
         if self.bulk_mode_var.get():
-            self.quantity_frame.pack(fill="x", pady=(0, 25), before=self.generate_btn)
+            # Get the button_frame reference
+            button_frame = self.generate_btn.master
+            self.quantity_frame.pack(fill="x", pady=(0, 20), before=button_frame)
+            self.quantity_entry.focus()
         else:
             self.quantity_frame.pack_forget()
+            self.admission_entry.focus()
 
     def handle_enter_key(self):
         """Handle Enter key: Generate on first press, Print on second press"""
@@ -659,7 +666,7 @@ class QRCodePrinterApp(ctk.CTk):
                 f"Failed to print:\n{str(e)}\n\nPlease check:\n- Printer is connected\n- Printer is turned on\n- Printer drivers are installed"
             )
         finally:
-            self.print_btn.configure(state="normal", text="Print Label")
+            self.print_btn.configure(state="normal", text="Print")
 
     def print_bulk_labels(self):
         """Print multiple labels in sequence"""
@@ -742,7 +749,7 @@ class QRCodePrinterApp(ctk.CTk):
                 f"Failed to print:\n{str(e)}\n\nPlease check:\n- Printer is connected\n- Printer is turned on\n- Printer drivers are installed"
             )
         finally:
-            self.print_btn.configure(state="normal", text="Print Label")
+            self.print_btn.configure(state="normal", text="Print")
             self.generate_btn.configure(state="normal")
 
     def clear_preview(self):
