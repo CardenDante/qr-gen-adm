@@ -152,7 +152,7 @@ class QRCodePrinterApp(ctk.CTk):
             fg_color="#FFFFFF"
         )
         self.admission_entry.pack(fill="x", pady=(0, 25))
-        self.admission_entry.bind("<Return>", lambda e: self.generate_qr_code())
+        self.admission_entry.bind("<Return>", lambda e: self.handle_enter_key())
 
         # Label Size Section
         size_label = ctk.CTkLabel(
@@ -178,7 +178,48 @@ class QRCodePrinterApp(ctk.CTk):
             dropdown_fg_color="#FFFFFF"
         )
         self.size_dropdown.set("60 x 40 mm")
-        self.size_dropdown.pack(fill="x", pady=(0, 35))
+        self.size_dropdown.pack(fill="x", pady=(0, 25))
+
+        # Bulk Print Toggle
+        self.bulk_mode_var = ctk.BooleanVar(value=False)
+        self.bulk_mode_checkbox = ctk.CTkCheckBox(
+            form_frame,
+            text="Bulk Print Mode",
+            variable=self.bulk_mode_var,
+            command=self.toggle_bulk_mode,
+            font=ctk.CTkFont(size=12),
+            text_color="#495057",
+            fg_color="#007bff",
+            hover_color="#0056b3",
+            checkbox_width=20,
+            checkbox_height=20
+        )
+        self.bulk_mode_checkbox.pack(fill="x", pady=(0, 15))
+
+        # Quantity input (hidden by default)
+        self.quantity_frame = ctk.CTkFrame(form_frame, fg_color="transparent", height=0)
+
+        quantity_label = ctk.CTkLabel(
+            self.quantity_frame,
+            text="Quantity",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#495057",
+            anchor="w"
+        )
+        quantity_label.pack(fill="x", pady=(0, 8))
+
+        self.quantity_entry = ctk.CTkEntry(
+            self.quantity_frame,
+            placeholder_text="How many labels? (e.g., 10)",
+            height=48,
+            font=ctk.CTkFont(size=15),
+            border_width=2,
+            corner_radius=8,
+            border_color="#dee2e6",
+            fg_color="#FFFFFF"
+        )
+        self.quantity_entry.pack(fill="x", pady=(0, 0))
+        self.quantity_entry.bind("<Return>", lambda e: self.handle_enter_key())
 
         # Modern buttons
         self.generate_btn = ctk.CTkButton(
@@ -253,6 +294,36 @@ class QRCodePrinterApp(ctk.CTk):
 
         # Info Labels (hidden initially)
         self.info_frame = ctk.CTkFrame(self.preview_container, fg_color="transparent")
+
+    def toggle_bulk_mode(self):
+        """Show/hide quantity input based on bulk mode toggle"""
+        if self.bulk_mode_var.get():
+            self.quantity_frame.pack(fill="x", pady=(0, 25), before=self.generate_btn)
+        else:
+            self.quantity_frame.pack_forget()
+
+    def handle_enter_key(self):
+        """Handle Enter key: Generate on first press, Print on second press"""
+        admission_number = self.admission_entry.get().strip()
+
+        if not admission_number:
+            messagebox.showwarning("Input Required", "Please enter an admission number")
+            return
+
+        # In bulk mode, check if quantity is provided
+        if self.bulk_mode_var.get():
+            quantity_str = self.quantity_entry.get().strip()
+            if not quantity_str:
+                # Focus on quantity field if empty
+                self.quantity_entry.focus()
+                return
+
+        # If QR already generated for this admission number, print it
+        if self.generated_qr_data == admission_number:
+            self.print_label()
+        else:
+            # Generate new QR code
+            self.generate_qr_code()
 
     def generate_qr_code(self):
         admission_number = self.admission_entry.get().strip()
@@ -543,6 +614,11 @@ class QRCodePrinterApp(ctk.CTk):
             messagebox.showwarning("No QR Code", "Please generate a QR code first")
             return
 
+        # Check if bulk mode is enabled
+        if self.bulk_mode_var.get():
+            self.print_bulk_labels()
+            return
+
         try:
             # Disable button
             self.print_btn.configure(state="disabled", text="Printing...")
@@ -585,6 +661,90 @@ class QRCodePrinterApp(ctk.CTk):
         finally:
             self.print_btn.configure(state="normal", text="Print Label")
 
+    def print_bulk_labels(self):
+        """Print multiple labels in sequence"""
+        try:
+            # Get starting number and quantity
+            starting_number = self.admission_entry.get().strip()
+            quantity_str = self.quantity_entry.get().strip()
+
+            if not starting_number:
+                messagebox.showwarning("Input Required", "Please enter starting admission number")
+                return
+
+            if not quantity_str:
+                messagebox.showwarning("Input Required", "Please enter quantity")
+                self.quantity_entry.focus()
+                return
+
+            try:
+                quantity = int(quantity_str)
+                if quantity <= 0:
+                    raise ValueError()
+            except ValueError:
+                messagebox.showwarning("Invalid Input", "Quantity must be a positive number")
+                return
+
+            # Disable button
+            self.print_btn.configure(state="disabled")
+            self.generate_btn.configure(state="disabled")
+            self.update()
+
+            # Get size
+            selected_size = self.size_dropdown.get()
+            width_mm, height_mm = self.label_sizes[selected_size]
+
+            # Find printer
+            printer_name = self.find_printer()
+
+            if not printer_name and IS_LINUX:
+                raise Exception("No printer found. Please ensure CUPS is installed and a printer is configured.")
+
+            # Check if starting number is numeric for incrementing
+            try:
+                start_num = int(starting_number)
+                is_numeric = True
+            except ValueError:
+                is_numeric = False
+                messagebox.showwarning("Invalid Input", "Starting admission number must be numeric for bulk printing")
+                return
+
+            # Print each label in sequence
+            for i in range(quantity):
+                current_number = str(start_num + i)
+
+                # Update button with progress
+                self.print_btn.configure(text=f"Printing {i+1}/{quantity}...")
+                self.update()
+
+                # Create label
+                label_image = self.create_label(current_number, width_mm, height_mm)
+
+                # Print based on platform
+                if IS_WINDOWS:
+                    self.print_label_windows(label_image, printer_name)
+                else:
+                    self.print_label_linux(label_image, printer_name)
+
+            # Show success dialog
+            self.show_auto_close_dialog(
+                "Bulk Print Complete",
+                f"Successfully printed {quantity} labels!\n\nRange: {start_num} to {start_num + quantity - 1}\nPrinter: {printer_name}\nSize: {selected_size}",
+                timeout=3000
+            )
+
+            # Clear
+            self.clear_preview()
+
+        except Exception as e:
+            messagebox.showerror(
+                "Print Error",
+                f"Failed to print:\n{str(e)}\n\nPlease check:\n- Printer is connected\n- Printer is turned on\n- Printer drivers are installed"
+            )
+        finally:
+            self.print_btn.configure(state="normal", text="Print Label")
+            self.generate_btn.configure(state="normal")
+
     def clear_preview(self):
         """Clear preview and reset form"""
         self.qr_display_label.pack_forget()
@@ -592,6 +752,7 @@ class QRCodePrinterApp(ctk.CTk):
         self.placeholder_label.place(relx=0.5, rely=0.5, anchor="center")
 
         self.admission_entry.delete(0, 'end')
+        self.quantity_entry.delete(0, 'end')
         self.generated_qr_data = None
         self.print_btn.configure(state="disabled")
         self.admission_entry.focus()
