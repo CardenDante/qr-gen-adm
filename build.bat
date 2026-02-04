@@ -14,7 +14,7 @@ if errorlevel 1 (
 echo.
 
 echo Step 2: Building executable with PyInstaller...
-python -m PyInstaller --onefile --windowed --icon=qr_icon.ico --name=QRLabelPrinter main.py
+python -m PyInstaller --onefile --windowed --icon=qr_icon.ico --name=QRLabelPrinter --hidden-import=tkinter --collect-all customtkinter main.py
 if errorlevel 1 (
     echo Error building executable!
     pause
