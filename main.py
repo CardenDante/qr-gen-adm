@@ -180,6 +180,22 @@ class QRCodePrinterApp(ctk.CTk):
         self.size_dropdown.set("60 x 40 mm")
         self.size_dropdown.pack(fill="x", pady=(0, 20))
 
+        # QR Only Toggle (no text on label)
+        self.qr_only_var = ctk.BooleanVar(value=False)
+        self.qr_only_checkbox = ctk.CTkCheckBox(
+            form_frame,
+            text="QR Only (No Text)",
+            variable=self.qr_only_var,
+            font=ctk.CTkFont(size=13),
+            text_color="#2c3e50",
+            fg_color="#007bff",
+            hover_color="#0056b3",
+            checkbox_width=22,
+            checkbox_height=22,
+            corner_radius=4
+        )
+        self.qr_only_checkbox.pack(fill="x", pady=(0, 10))
+
         # Bulk Print Toggle
         self.bulk_mode_var = ctk.BooleanVar(value=False)
         self.bulk_mode_checkbox = ctk.CTkCheckBox(
@@ -370,16 +386,19 @@ class QRCodePrinterApp(ctk.CTk):
         for widget in self.info_frame.winfo_children():
             widget.destroy()
 
-        # Show info
-        self.info_frame.pack(pady=(0, 20))
+        # Show info only if not in QR Only mode
+        if not self.qr_only_var.get():
+            self.info_frame.pack(pady=(0, 20))
 
-        admission_info = ctk.CTkLabel(
-            self.info_frame,
-            text=full_number,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            text_color="#2C3E50"
-        )
-        admission_info.pack()
+            admission_info = ctk.CTkLabel(
+                self.info_frame,
+                text=full_number,
+                font=ctk.CTkFont(size=16, weight="bold"),
+                text_color="#2C3E50"
+            )
+            admission_info.pack()
+        else:
+            self.info_frame.pack_forget()
 
         size_info = ctk.CTkLabel(
             self.info_frame,
@@ -400,7 +419,7 @@ class QRCodePrinterApp(ctk.CTk):
         return int((mm / 25.4) * dpi)
 
     def create_label(self, admission_number, width_mm, height_mm):
-        """Create professional label with QR code and text"""
+        """Create professional label with QR code and optional text"""
         width_px = self.mm_to_pixels(width_mm)
         height_px = self.mm_to_pixels(height_mm)
 
@@ -419,88 +438,83 @@ class QRCodePrinterApp(ctk.CTk):
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color="black", back_color="white")
 
-        # Calculate sizes based on label dimensions
-        # QR code takes 90% of height, text area takes the rest
-        qr_size = int(height_px * 0.90)
-        text_area_width = width_px - qr_size - int(width_px * 0.06)  # Remaining space with margin
+        qr_only = self.qr_only_var.get()
 
-        # Resize QR code
-        qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+        if qr_only:
+            # QR Only mode: QR code fills the entire label (centered)
+            # Only leave room for the border (border_width=4 on each side + tiny padding)
+            margin = 6
+            max_qr_size = min(width_px, height_px) - (margin * 2)
+            qr_img = qr_img.resize((max_qr_size, max_qr_size), Image.Resampling.LANCZOS)
 
-        # Position QR code on the left with minimal margin
-        margin = int(width_px * 0.02)
-        qr_x = margin
-        qr_y = (height_px - qr_size) // 2
+            qr_x = (width_px - max_qr_size) // 2
+            qr_y = (height_px - max_qr_size) // 2
+            label.paste(qr_img, (qr_x, qr_y))
+        else:
+            # Normal mode: QR on left, text on right
+            qr_size = int(height_px * 0.90)
 
-        label.paste(qr_img, (qr_x, qr_y))
+            qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
 
-        # Add text on the right side - VERTICALLY (rotated 90 degrees)
-        text_x = qr_x + qr_size + int(margin * 0.5)
+            margin = int(width_px * 0.02)
+            qr_x = margin
+            qr_y = (height_px - qr_size) // 2
+            label.paste(qr_img, (qr_x, qr_y))
 
-        # Try to load a bold font, fallback to default
-        try:
-            # Calculate font size based on available space
-            # Font should fit in the remaining width when rotated
-            # Increased size for better visibility on all label types
-            font_size = int(height_px * 0.18)
+            # Add text on the right side - VERTICALLY (rotated 90 degrees)
+            text_x = qr_x + qr_size + int(margin * 0.5)
 
-            # Try to find fonts based on platform
-            if IS_WINDOWS:
-                font_paths = [
-                    "C:/Windows/Fonts/arialbd.ttf",  # Arial Bold
-                    "C:/Windows/Fonts/arial.ttf",     # Arial Regular
-                    "C:/Windows/Fonts/calibrib.ttf",  # Calibri Bold
-                ]
-            else:
-                # Linux font paths
-                font_paths = [
-                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-                    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-                    "/usr/share/fonts/TTF/DejaVuSans.ttf",
-                ]
+            # Try to load a bold font, fallback to default
+            try:
+                font_size = int(height_px * 0.18)
 
-            text_font = None
+                if IS_WINDOWS:
+                    font_paths = [
+                        "C:/Windows/Fonts/arialbd.ttf",
+                        "C:/Windows/Fonts/arial.ttf",
+                        "C:/Windows/Fonts/calibrib.ttf",
+                    ]
+                else:
+                    font_paths = [
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+                        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                    ]
 
-            for font_path in font_paths:
-                if os.path.exists(font_path):
-                    try:
-                        text_font = ImageFont.truetype(font_path, font_size)
-                        break
-                    except:
-                        continue
+                text_font = None
+                for font_path in font_paths:
+                    if os.path.exists(font_path):
+                        try:
+                            text_font = ImageFont.truetype(font_path, font_size)
+                            break
+                        except:
+                            continue
 
-            if not text_font:
+                if not text_font:
+                    text_font = ImageFont.load_default()
+            except Exception:
                 text_font = ImageFont.load_default()
 
-        except Exception as e:
-            text_font = ImageFont.load_default()
+            full_text = admission_number
 
-        # Create the full text (no line breaks)
-        full_text = admission_number
+            temp_bbox = draw.textbbox((0, 0), full_text, font=text_font)
+            text_width = temp_bbox[2] - temp_bbox[0]
+            text_height = temp_bbox[3] - temp_bbox[1]
 
-        # Create a temporary image to draw the text horizontally
-        temp_bbox = draw.textbbox((0, 0), full_text, font=text_font)
-        text_width = temp_bbox[2] - temp_bbox[0]
-        text_height = temp_bbox[3] - temp_bbox[1]
+            text_img = Image.new('RGB', (text_width + 20, text_height + 20), 'white')
+            text_draw = ImageDraw.Draw(text_img)
+            text_draw.text((10, 10), full_text, fill='black', font=text_font)
 
-        # Create temporary image for text
-        text_img = Image.new('RGB', (text_width + 20, text_height + 20), 'white')
-        text_draw = ImageDraw.Draw(text_img)
-        text_draw.text((10, 10), full_text, fill='black', font=text_font)
+            text_img_rotated = text_img.rotate(90, expand=True)
 
-        # Rotate text 90 degrees counter-clockwise
-        text_img_rotated = text_img.rotate(90, expand=True)
+            rotated_width, rotated_height = text_img_rotated.size
+            text_paste_x = text_x
+            text_paste_y = (height_px - rotated_height) // 2
 
-        # Calculate position to center the rotated text vertically and place it on the right
-        rotated_width, rotated_height = text_img_rotated.size
-        text_paste_x = text_x
-        text_paste_y = (height_px - rotated_height) // 2
-
-        # Paste the rotated text onto the label
-        label.paste(text_img_rotated, (text_paste_x, text_paste_y))
+            label.paste(text_img_rotated, (text_paste_x, text_paste_y))
 
         # Add a visible border for professional look
         border_width = 4
