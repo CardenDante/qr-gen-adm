@@ -1,7 +1,8 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
+import csv
 import os
 import sys
 import platform
@@ -54,6 +55,12 @@ class QRCodePrinterApp(ctk.CTk):
 
         self.generated_qr_data = None
         self.qr_image_display = None
+
+        # CSV batch state
+        self.csv_data = []
+        self.csv_batch_index = 0
+        self.csv_batch_size = 10
+        self.csv_printing = False
 
         self.create_widgets()
 
@@ -132,14 +139,14 @@ class QRCodePrinterApp(ctk.CTk):
         form_frame.pack(fill="both", expand=True, padx=35, pady=(15, 35))
 
         # Admission Number Section
-        admission_label = ctk.CTkLabel(
+        self.admission_label = ctk.CTkLabel(
             form_frame,
             text="Admission Number",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#2c3e50",
             anchor="w"
         )
-        admission_label.pack(fill="x", pady=(15, 8))
+        self.admission_label.pack(fill="x", pady=(15, 8))
 
         self.admission_entry = ctk.CTkEntry(
             form_frame,
@@ -155,14 +162,14 @@ class QRCodePrinterApp(ctk.CTk):
         self.admission_entry.bind("<Return>", lambda e: self.handle_enter_key())
 
         # Label Size Section
-        size_label = ctk.CTkLabel(
+        self.size_label_widget = ctk.CTkLabel(
             form_frame,
             text="Label Size",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#2c3e50",
             anchor="w"
         )
-        size_label.pack(fill="x", pady=(0, 8))
+        self.size_label_widget.pack(fill="x", pady=(0, 8))
 
         self.size_dropdown = ctk.CTkOptionMenu(
             form_frame,
@@ -212,6 +219,116 @@ class QRCodePrinterApp(ctk.CTk):
             corner_radius=4
         )
         self.bulk_mode_checkbox.pack(fill="x", pady=(0, 20))
+
+        # CSV Batch Mode Toggle
+        self.csv_mode_var = ctk.BooleanVar(value=False)
+        self.csv_mode_checkbox = ctk.CTkCheckBox(
+            form_frame,
+            text="CSV Batch Print",
+            variable=self.csv_mode_var,
+            command=self.toggle_csv_mode,
+            font=ctk.CTkFont(size=13),
+            text_color="#2c3e50",
+            fg_color="#007bff",
+            hover_color="#0056b3",
+            checkbox_width=22,
+            checkbox_height=22,
+            corner_radius=4
+        )
+        self.csv_mode_checkbox.pack(fill="x", pady=(0, 20))
+
+        # CSV controls frame (hidden by default)
+        self.csv_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+
+        self.csv_file_label = ctk.CTkLabel(
+            self.csv_frame,
+            text="No file loaded",
+            font=ctk.CTkFont(size=12),
+            text_color="#6c757d",
+            anchor="w"
+        )
+        self.csv_file_label.pack(fill="x", pady=(0, 8))
+
+        csv_btn_row = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
+        csv_btn_row.pack(fill="x", pady=(0, 10))
+
+        self.load_csv_btn = ctk.CTkButton(
+            csv_btn_row,
+            text="Load CSV",
+            command=self.load_csv,
+            height=38,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            corner_radius=6,
+            fg_color="#6c757d",
+            hover_color="#5a6268"
+        )
+        self.load_csv_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        # Batch size
+        batch_size_frame = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
+        batch_size_frame.pack(fill="x", pady=(0, 10))
+
+        batch_label = ctk.CTkLabel(
+            batch_size_frame,
+            text="Batch Size",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#2c3e50",
+            anchor="w"
+        )
+        batch_label.pack(fill="x", pady=(0, 5))
+
+        self.batch_size_entry = ctk.CTkEntry(
+            batch_size_frame,
+            placeholder_text="e.g., 10",
+            height=38,
+            font=ctk.CTkFont(size=13),
+            border_width=1,
+            corner_radius=6,
+            border_color="#ced4da",
+            fg_color="#FFFFFF"
+        )
+        self.batch_size_entry.insert(0, "10")
+        self.batch_size_entry.pack(fill="x")
+
+        # CSV progress label
+        self.csv_progress_label = ctk.CTkLabel(
+            self.csv_frame,
+            text="",
+            font=ctk.CTkFont(size=12),
+            text_color="#28a745",
+            anchor="w"
+        )
+        self.csv_progress_label.pack(fill="x", pady=(0, 8))
+
+        # CSV action buttons
+        csv_action_row = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
+        csv_action_row.pack(fill="x", pady=(0, 10))
+
+        self.csv_start_btn = ctk.CTkButton(
+            csv_action_row,
+            text="Start Printing",
+            command=self.csv_print_next_batch,
+            height=40,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            corner_radius=6,
+            fg_color="#28a745",
+            hover_color="#218838",
+            state="disabled"
+        )
+        self.csv_start_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        self.csv_stop_btn = ctk.CTkButton(
+            csv_action_row,
+            text="Reset",
+            command=self.csv_reset,
+            height=40,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            corner_radius=6,
+            fg_color="#dc3545",
+            hover_color="#c82333",
+            state="disabled"
+        )
+        self.csv_stop_btn.pack(side="left", fill="x", expand=True)
 
         # Quantity input (hidden by default)
         self.quantity_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
@@ -765,6 +882,184 @@ class QRCodePrinterApp(ctk.CTk):
         finally:
             self.print_btn.configure(state="normal", text="Print")
             self.generate_btn.configure(state="normal")
+
+    def toggle_csv_mode(self):
+        """Show/hide CSV controls, hiding irrelevant fields to save space"""
+        if self.csv_mode_var.get():
+            # Disable bulk mode if on
+            self.bulk_mode_var.set(False)
+            self.quantity_frame.pack_forget()
+            # Auto-enable QR Only
+            self.qr_only_var.set(True)
+            self._repack_form_fields()
+        else:
+            self.csv_frame.pack_forget()
+            self.csv_reset()
+            self._repack_form_fields()
+
+    def _repack_form_fields(self):
+        """Repack form fields in correct order based on current mode"""
+        form_frame = self.admission_label.master
+        button_frame = self.generate_btn.master
+        csv_mode = self.csv_mode_var.get()
+        # Forget all to repack in order
+        for child in form_frame.winfo_children():
+            child.pack_forget()
+        if not csv_mode:
+            self.admission_label.pack(fill="x", pady=(15, 8))
+            self.admission_entry.pack(fill="x", pady=(0, 20))
+        self.size_label_widget.pack(fill="x", pady=(0, 8))
+        self.size_dropdown.pack(fill="x", pady=(0, 20))
+        self.qr_only_checkbox.pack(fill="x", pady=(0, 10))
+        if not csv_mode:
+            self.bulk_mode_checkbox.pack(fill="x", pady=(0, 20))
+        self.csv_mode_checkbox.pack(fill="x", pady=(0, 20))
+        if csv_mode:
+            self.csv_frame.pack(fill="x", pady=(0, 10))
+        else:
+            if self.bulk_mode_var.get():
+                self.quantity_frame.pack(fill="x", pady=(0, 20))
+            button_frame.pack(fill="x", pady=(0, 0))
+
+    def load_csv(self):
+        """Open file dialog and load CSV data"""
+        filepath = filedialog.askopenfilename(
+            title="Select CSV File",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if not filepath:
+            return
+
+        try:
+            data = []
+            with open(filepath, 'r', newline='', encoding='utf-8') as f:
+                # Try to detect if there's a header
+                sample = f.read(4096)
+                f.seek(0)
+                sniffer = csv.Sniffer()
+                try:
+                    has_header = sniffer.has_header(sample)
+                    dialect = sniffer.sniff(sample)
+                except csv.Error:
+                    has_header = False
+                    dialect = csv.excel
+
+                reader = csv.reader(f, dialect)
+                if has_header:
+                    next(reader)  # skip header
+
+                for row in reader:
+                    if row and row[0].strip():
+                        data.append(row[0].strip())
+
+            if not data:
+                messagebox.showwarning("Empty File", "No data found in CSV file.")
+                return
+
+            self.csv_data = data
+            self.csv_batch_index = 0
+            filename = os.path.basename(filepath)
+            self.csv_file_label.configure(text=f"{filename} ({len(data)} codes)")
+            self.csv_progress_label.configure(text=f"Ready: 0/{len(data)} printed")
+            self.csv_start_btn.configure(state="normal", text="Start Printing")
+            self.csv_stop_btn.configure(state="normal")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load CSV:\n{str(e)}")
+
+    def csv_print_next_batch(self):
+        """Print the next batch of QR codes from CSV"""
+        if not self.csv_data:
+            messagebox.showwarning("No Data", "Please load a CSV file first.")
+            return
+
+        try:
+            batch_size_str = self.batch_size_entry.get().strip()
+            batch_size = int(batch_size_str) if batch_size_str else 10
+            if batch_size <= 0:
+                raise ValueError()
+        except ValueError:
+            messagebox.showwarning("Invalid Input", "Batch size must be a positive number.")
+            return
+
+        total = len(self.csv_data)
+        start = self.csv_batch_index
+        end = min(start + batch_size, total)
+
+        if start >= total:
+            messagebox.showinfo("Done", "All codes have been printed!")
+            return
+
+        batch = self.csv_data[start:end]
+        batch_num = (start // batch_size) + 1
+        total_batches = (total + batch_size - 1) // batch_size
+
+        # Disable controls during printing
+        self.csv_start_btn.configure(state="disabled", text=f"Printing batch {batch_num}/{total_batches}...")
+        self.csv_stop_btn.configure(state="disabled")
+        self.load_csv_btn.configure(state="disabled")
+        self.update()
+
+        try:
+            # Get size
+            selected_size = self.size_dropdown.get()
+            width_mm, height_mm = self.label_sizes[selected_size]
+
+            # Find printer
+            printer_name = self.find_printer()
+            if not printer_name and IS_LINUX:
+                raise Exception("No printer found.")
+
+            for i, code in enumerate(batch):
+                self.csv_progress_label.configure(
+                    text=f"Batch {batch_num}/{total_batches} — Printing {i+1}/{len(batch)}  |  Total: {start+i+1}/{total}"
+                )
+                self.update()
+
+                label_image = self.create_label(code, width_mm, height_mm)
+
+                if IS_WINDOWS:
+                    self.print_label_windows(label_image, printer_name)
+                else:
+                    self.print_label_linux(label_image, printer_name)
+
+            # Update index
+            self.csv_batch_index = end
+
+            if end >= total:
+                self.csv_progress_label.configure(text=f"Done! All {total} codes printed.")
+                self.csv_start_btn.configure(text="All Done", state="disabled")
+                self.show_auto_close_dialog(
+                    "CSV Print Complete",
+                    f"All {total} QR codes printed successfully!\nPrinter: {printer_name}\nSize: {selected_size}",
+                    timeout=3000
+                )
+            else:
+                remaining = total - end
+                self.csv_progress_label.configure(
+                    text=f"Batch {batch_num} done. {end}/{total} printed — {remaining} remaining"
+                )
+                self.csv_start_btn.configure(text=f"Print Next Batch ({min(batch_size, remaining)})", state="normal")
+
+        except Exception as e:
+            messagebox.showerror(
+                "Print Error",
+                f"Failed at item {start + i + 1}:\n{str(e)}\n\nYou can resume from where it stopped."
+            )
+            self.csv_progress_label.configure(text=f"Stopped at {start + i + 1}/{total}. Click to resume.")
+            self.csv_start_btn.configure(text="Resume", state="normal")
+        finally:
+            self.csv_stop_btn.configure(state="normal")
+            self.load_csv_btn.configure(state="normal")
+
+    def csv_reset(self):
+        """Reset CSV batch state"""
+        self.csv_data = []
+        self.csv_batch_index = 0
+        self.csv_file_label.configure(text="No file loaded")
+        self.csv_progress_label.configure(text="")
+        self.csv_start_btn.configure(state="disabled", text="Start Printing")
+        self.csv_stop_btn.configure(state="disabled")
 
     def clear_preview(self):
         """Clear preview and reset form"""
