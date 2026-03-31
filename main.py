@@ -558,8 +558,7 @@ class QRCodePrinterApp(ctk.CTk):
         qr_only = self.qr_only_var.get()
 
         if qr_only:
-            # QR Only mode: QR code fills the entire label (centered)
-            # Only leave room for the border (border_width=4 on each side + tiny padding)
+            # QR Only mode: QR code centered on label
             margin = 6
             max_qr_size = min(width_px, height_px) - (margin * 2)
             qr_img = qr_img.resize((max_qr_size, max_qr_size), Image.Resampling.LANCZOS)
@@ -634,12 +633,20 @@ class QRCodePrinterApp(ctk.CTk):
             label.paste(text_img_rotated, (text_paste_x, text_paste_y))
 
         # Add a visible border for professional look
-        border_width = 4
-        draw.rectangle(
-            [border_width, border_width, width_px - border_width, height_px - border_width],
-            outline='black',
-            width=border_width
-        )
+        if qr_only:
+            # Thin single-line border in QR Only mode
+            draw.rectangle(
+                [0, 0, width_px - 1, height_px - 1],
+                outline='black',
+                width=2
+            )
+        else:
+            border_width = 4
+            draw.rectangle(
+                [border_width, border_width, width_px - border_width, height_px - border_width],
+                outline='black',
+                width=border_width
+            )
 
         # Convert to monochrome for thermal printer
         label = label.convert('1', dither=Image.Dither.NONE)
@@ -933,24 +940,16 @@ class QRCodePrinterApp(ctk.CTk):
         try:
             data = []
             with open(filepath, 'r', newline='', encoding='utf-8') as f:
-                # Try to detect if there's a header
-                sample = f.read(4096)
-                f.seek(0)
-                sniffer = csv.Sniffer()
-                try:
-                    has_header = sniffer.has_header(sample)
-                    dialect = sniffer.sniff(sample)
-                except csv.Error:
-                    has_header = False
-                    dialect = csv.excel
-
-                reader = csv.reader(f, dialect)
-                if has_header:
-                    next(reader)  # skip header
-
-                for row in reader:
-                    if row and row[0].strip():
-                        data.append(row[0].strip())
+                # Read line by line — treat each line as one code
+                # This avoids csv.Sniffer misdetecting '-' as delimiter
+                for line in f:
+                    value = line.strip()
+                    if not value:
+                        continue
+                    # Skip header row if it looks like a header
+                    if not data and value.lower() in ('qr-code', 'qr_code', 'qrcode', 'code', 'data'):
+                        continue
+                    data.append(value)
 
             if not data:
                 messagebox.showwarning("Empty File", "No data found in CSV file.")
