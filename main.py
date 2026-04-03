@@ -677,13 +677,23 @@ class QRCodePrinterApp(ctk.CTk):
             result = subprocess.run(['lpstat', '-p'], capture_output=True, text=True)
             printers = result.stdout
 
-            # Look for Xprinter
+            # Look for Xprinter — prefer enabled printers
+            xprinter_enabled = None
+            xprinter_any = None
             for line in printers.split('\n'):
                 if '470B' in line or 'XP-470B' in line or 'XPRINTER' in line.upper():
-                    # Extract printer name
                     parts = line.split()
                     if len(parts) >= 2:
-                        return parts[1]
+                        name = parts[1]
+                        if 'disabled' not in line:
+                            xprinter_enabled = name
+                        elif not xprinter_any:
+                            xprinter_any = name
+
+            if xprinter_enabled:
+                return xprinter_enabled
+            if xprinter_any:
+                return xprinter_any
 
             # Get default printer
             result = subprocess.run(['lpstat', '-d'], capture_output=True, text=True)
@@ -727,6 +737,8 @@ class QRCodePrinterApp(ctk.CTk):
 
     def print_label_linux(self, label_image, printer_name):
         """Print using CUPS on Linux"""
+        import time
+
         # Save image to temporary file
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
             tmp_path = tmp.name
@@ -746,6 +758,15 @@ class QRCodePrinterApp(ctk.CTk):
 
             if result.returncode != 0:
                 raise Exception(f"Print failed: {result.stderr}")
+
+            # Wait for the print job to finish before returning
+            # This prevents overwhelming the printer with queued jobs
+            for _ in range(60):  # max 30 seconds wait
+                time.sleep(0.5)
+                check = subprocess.run(['lpstat', '-o', printer_name or ''],
+                                       capture_output=True, text=True)
+                if not check.stdout.strip():
+                    break  # no pending jobs, printer is ready
 
         finally:
             # Clean up temp file
