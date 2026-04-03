@@ -61,6 +61,7 @@ class QRCodePrinterApp(ctk.CTk):
         self.csv_batch_index = 0
         self.csv_batch_size = 10
         self.csv_printing = False
+        self.csv_side_text = ""
 
         self.create_widgets()
 
@@ -240,93 +241,80 @@ class QRCodePrinterApp(ctk.CTk):
         # CSV controls frame (hidden by default)
         self.csv_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
 
-        self.csv_file_label = ctk.CTkLabel(
-            self.csv_frame,
-            text="No file loaded",
-            font=ctk.CTkFont(size=12),
-            text_color="#6c757d",
-            anchor="w"
-        )
-        self.csv_file_label.pack(fill="x", pady=(0, 8))
-
-        csv_btn_row = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
-        csv_btn_row.pack(fill="x", pady=(0, 10))
+        # Load CSV + file info on same row
+        csv_top_row = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
+        csv_top_row.pack(fill="x", pady=(0, 5))
 
         self.load_csv_btn = ctk.CTkButton(
-            csv_btn_row,
+            csv_top_row,
             text="Load CSV",
             command=self.load_csv,
-            height=38,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            height=32,
+            width=90,
+            font=ctk.CTkFont(size=12, weight="bold"),
             corner_radius=6,
             fg_color="#6c757d",
             hover_color="#5a6268"
         )
-        self.load_csv_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.load_csv_btn.pack(side="left", padx=(0, 8))
 
-        # Batch size
-        batch_size_frame = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
-        batch_size_frame.pack(fill="x", pady=(0, 10))
-
-        batch_label = ctk.CTkLabel(
-            batch_size_frame,
-            text="Batch Size",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#2c3e50",
+        self.csv_file_label = ctk.CTkLabel(
+            csv_top_row,
+            text="No file loaded",
+            font=ctk.CTkFont(size=11),
+            text_color="#6c757d",
             anchor="w"
         )
-        batch_label.pack(fill="x", pady=(0, 5))
+        self.csv_file_label.pack(side="left", fill="x", expand=True)
+
+        # Batch size + Label text side by side
+        batch_size_frame = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
+        batch_size_frame.pack(fill="x", pady=(0, 5))
+        batch_size_frame.grid_columnconfigure(0, weight=1)
+        batch_size_frame.grid_columnconfigure(1, weight=2)
+
+        ctk.CTkLabel(batch_size_frame, text="Batch Size", font=ctk.CTkFont(size=11, weight="bold"),
+                      text_color="#2c3e50", anchor="w").grid(row=0, column=0, sticky="w", padx=(0, 5))
+        ctk.CTkLabel(batch_size_frame, text="Label Text (optional)", font=ctk.CTkFont(size=11, weight="bold"),
+                      text_color="#2c3e50", anchor="w").grid(row=0, column=1, sticky="w")
 
         self.batch_size_entry = ctk.CTkEntry(
-            batch_size_frame,
-            placeholder_text="e.g., 10",
-            height=38,
-            font=ctk.CTkFont(size=13),
-            border_width=1,
-            corner_radius=6,
-            border_color="#ced4da",
-            fg_color="#FFFFFF"
+            batch_size_frame, placeholder_text="10", height=32,
+            font=ctk.CTkFont(size=12), border_width=1, corner_radius=6,
+            border_color="#ced4da", fg_color="#FFFFFF"
         )
         self.batch_size_entry.insert(0, "10")
-        self.batch_size_entry.pack(fill="x")
+        self.batch_size_entry.grid(row=1, column=0, sticky="ew", padx=(0, 5))
+
+        self.side_text_entry = ctk.CTkEntry(
+            batch_size_frame, placeholder_text="e.g., Replaced", height=32,
+            font=ctk.CTkFont(size=12), border_width=1, corner_radius=6,
+            border_color="#ced4da", fg_color="#FFFFFF"
+        )
+        self.side_text_entry.grid(row=1, column=1, sticky="ew")
 
         # CSV progress label
         self.csv_progress_label = ctk.CTkLabel(
-            self.csv_frame,
-            text="",
-            font=ctk.CTkFont(size=12),
-            text_color="#28a745",
-            anchor="w"
+            self.csv_frame, text="", font=ctk.CTkFont(size=11),
+            text_color="#28a745", anchor="w"
         )
-        self.csv_progress_label.pack(fill="x", pady=(0, 8))
+        self.csv_progress_label.pack(fill="x", pady=(2, 4))
 
         # CSV action buttons
         csv_action_row = ctk.CTkFrame(self.csv_frame, fg_color="transparent")
-        csv_action_row.pack(fill="x", pady=(0, 10))
+        csv_action_row.pack(fill="x", pady=(0, 5))
 
         self.csv_start_btn = ctk.CTkButton(
-            csv_action_row,
-            text="Start Printing",
-            command=self.csv_print_next_batch,
-            height=40,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            corner_radius=6,
-            fg_color="#28a745",
-            hover_color="#218838",
-            state="disabled"
+            csv_action_row, text="Start Printing", command=self.csv_print_next_batch,
+            height=36, font=ctk.CTkFont(size=13, weight="bold"), corner_radius=6,
+            fg_color="#28a745", hover_color="#218838", state="disabled"
         )
         self.csv_start_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
         self.csv_stop_btn = ctk.CTkButton(
-            csv_action_row,
-            text="Reset",
-            command=self.csv_reset,
-            height=40,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            corner_radius=6,
-            fg_color="#dc3545",
-            hover_color="#c82333",
-            state="disabled"
+            csv_action_row, text="Reset", command=self.csv_reset,
+            height=36, font=ctk.CTkFont(size=13, weight="bold"), corner_radius=6,
+            fg_color="#dc3545", hover_color="#c82333", state="disabled"
         )
         self.csv_stop_btn.pack(side="left", fill="x", expand=True)
 
@@ -535,7 +523,7 @@ class QRCodePrinterApp(ctk.CTk):
         """Convert millimeters to pixels for thermal printer (203 DPI)"""
         return int((mm / 25.4) * dpi)
 
-    def create_label(self, admission_number, width_mm, height_mm):
+    def create_label(self, admission_number, width_mm, height_mm, side_text=None):
         """Create professional label with QR code and optional text"""
         width_px = self.mm_to_pixels(width_mm)
         height_px = self.mm_to_pixels(height_mm)
@@ -558,14 +546,87 @@ class QRCodePrinterApp(ctk.CTk):
         qr_only = self.qr_only_var.get()
 
         if qr_only:
-            # QR Only mode: QR code centered on label
             margin = 6
-            max_qr_size = min(width_px, height_px) - (margin * 2)
-            qr_img = qr_img.resize((max_qr_size, max_qr_size), Image.Resampling.LANCZOS)
+            if side_text:
+                # QR on left, side text on right
+                qr_size = height_px - (margin * 2)
+                qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
 
-            qr_x = (width_px - max_qr_size) // 2
-            qr_y = (height_px - max_qr_size) // 2
-            label.paste(qr_img, (qr_x, qr_y))
+                qr_x = margin
+                qr_y = (height_px - qr_size) // 2
+                label.paste(qr_img, (qr_x, qr_y))
+
+                # Draw side text vertically on the right
+                text_area_x = qr_x + qr_size + margin
+                available_width = width_px - text_area_x - margin
+                available_height = height_px - (margin * 2)
+
+                # Find font path
+                font_path_found = None
+                if IS_WINDOWS:
+                    font_paths = [
+                        "C:/Windows/Fonts/arialbd.ttf",
+                        "C:/Windows/Fonts/arial.ttf",
+                    ]
+                else:
+                    font_paths = [
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+                    ]
+                for fp in font_paths:
+                    if os.path.exists(fp):
+                        font_path_found = fp
+                        break
+
+                # Auto-scale font to fit available space
+                # After 90° rotation: text_h becomes width, text_w becomes height
+                # So text_h must fit in available_width, text_w must fit in available_height
+                font_size = int(available_width * 0.85)  # start with max that fits width
+                side_font = None
+                while font_size > 8:
+                    try:
+                        if font_path_found:
+                            side_font = ImageFont.truetype(font_path_found, font_size)
+                        else:
+                            side_font = ImageFont.load_default()
+                            break
+                        bbox = draw.textbbox((0, 0), side_text, font=side_font)
+                        text_w = bbox[2] - bbox[0]
+                        text_h = bbox[3] - bbox[1]
+                        # After rotation: width->height, height->width
+                        if text_h <= available_width and text_w <= available_height:
+                            break
+                        font_size -= 2
+                    except:
+                        font_size -= 2
+                        continue
+
+                if not side_font:
+                    side_font = ImageFont.load_default()
+
+                temp_bbox = draw.textbbox((0, 0), side_text, font=side_font)
+                text_w = temp_bbox[2] - temp_bbox[0]
+                text_h = temp_bbox[3] - temp_bbox[1]
+
+                text_img = Image.new('RGB', (text_w + 10, text_h + 10), 'white')
+                text_draw = ImageDraw.Draw(text_img)
+                text_draw.text((5, 5), side_text, fill='black', font=side_font)
+                text_img_rotated = text_img.rotate(90, expand=True)
+
+                rotated_w, rotated_h = text_img_rotated.size
+                text_paste_x = text_area_x + (available_width - rotated_w) // 2
+                text_paste_y = (height_px - rotated_h) // 2
+                label.paste(text_img_rotated, (max(text_paste_x, text_area_x), text_paste_y))
+            else:
+                # QR code centered on label, no text
+                max_qr_size = min(width_px, height_px) - (margin * 2)
+                qr_img = qr_img.resize((max_qr_size, max_qr_size), Image.Resampling.LANCZOS)
+
+                qr_x = (width_px - max_qr_size) // 2
+                qr_y = (height_px - max_qr_size) // 2
+                label.paste(qr_img, (qr_x, qr_y))
         else:
             # Normal mode: QR on left, text on right
             qr_size = int(height_px * 0.90)
@@ -993,6 +1054,9 @@ class QRCodePrinterApp(ctk.CTk):
             messagebox.showwarning("No Data", "Please load a CSV file first.")
             return
 
+        # Read side text (e.g. "Replaced" -> prints "Replaced #1", "Replaced #2"...)
+        self.csv_side_text = self.side_text_entry.get().strip()
+
         try:
             batch_size_str = self.batch_size_entry.get().strip()
             batch_size = int(batch_size_str) if batch_size_str else 10
@@ -1018,7 +1082,7 @@ class QRCodePrinterApp(ctk.CTk):
         self.csv_start_btn.configure(state="disabled", text=f"Printing batch {batch_num}/{total_batches}...")
         self.csv_stop_btn.configure(state="disabled")
         self.load_csv_btn.configure(state="disabled")
-        self.update()
+        self.update_idletasks()
 
         try:
             # Get size
@@ -1034,9 +1098,13 @@ class QRCodePrinterApp(ctk.CTk):
                 self.csv_progress_label.configure(
                     text=f"Batch {batch_num}/{total_batches} — Printing {i+1}/{len(batch)}  |  Total: {start+i+1}/{total}"
                 )
-                self.update()
+                self.update_idletasks()
 
-                label_image = self.create_label(code, width_mm, height_mm)
+                # Build side text if csv_side_text is set
+                side_text = None
+                if self.csv_side_text:
+                    side_text = f"{self.csv_side_text} #{start + i + 1}"
+                label_image = self.create_label(code, width_mm, height_mm, side_text=side_text)
 
                 if IS_WINDOWS:
                     self.print_label_windows(label_image, printer_name)
