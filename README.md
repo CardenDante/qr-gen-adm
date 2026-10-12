@@ -12,17 +12,17 @@
 
 ---
 
-## 📋 Overview
+##  Overview
 
 A modern, professional desktop application for generating and printing QR code labels directly to thermal printers. Specifically optimized for the **Xprinter 470B** thermal label printer.
 
-## 📦 Download
+##  Download
 
 **[Download Latest Release](https://github.com/CardenDante/qr-gen-adm/releases/tag/Ultra-Fast)**
 
 Download `QR_Label_Printer.exe` and run - no installation required!
 
-## 🎯 Supported Label Sizes
+##  Supported Label Sizes
 
 - 60 x 40 mm *(default)*
 - 50 x 30 mm
@@ -30,7 +30,7 @@ Download `QR_Label_Printer.exe` and run - no installation required!
 - 50 x 25 mm
 - 70 x 40 mm
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Option 1: Download Executable (Recommended)
 
